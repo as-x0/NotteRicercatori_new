@@ -22,14 +22,6 @@ prodotti_inglese = sorted(df["Item"].unique())
 prodotti_italiano = [traduzioni_prodotti.get(p, p) for p in prodotti_inglese]
 anni = sorted(df["Year"].unique(), reverse=True)
 
-if 'prodotto_italiano' not in st.session_state:
-    st.session_state.prodotto_italiano = None
-    
-prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano)
-
-if prodotto_italiano != st.session_state.prodotto_italiano:
-     st.session_state.prodotto_italiano = prodotto_italiano
-
 mappa_paesi = {
     "Afghanistan": "Afghanistan",
     "Albania": "Albania",
@@ -228,6 +220,8 @@ if "partecipanti" not in st.session_state:
     st.session_state.partecipanti = {}
 if "current_player" not in st.session_state:
     st.session_state.current_player = 0
+if 'prodotto_italiano' not in st.session_state:
+    st.session_state.prodotto_italiano = None
 
 # Funzione reset per tornare all'inizio
 def reset():
@@ -241,6 +235,8 @@ if st.session_state.step == "start":
 
     # Scelta prodotto
     prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano, key="prodotto_italiano")
+    if prodotto_italiano != st.session_state.prodotto_italiano:
+        st.session_state.prodotto_italiano = prodotto_italiano
 
     # Numero paesi per giocatore
     num_paesi = st.radio("Quanti paesi per giocatore?", [3, 5], key="num_paesi")
