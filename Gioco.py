@@ -234,7 +234,7 @@ if st.session_state.step == "start":
     # Scelta prodotto
     prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano, key="prodotto_italiano")
     if 'prodotto_italiano' not in st.session_state:
-    st.session_state.prodotto_italiano = "Banane"
+        st.session_state.prodotto_italiano = "Banane"
 
     # Numero paesi per giocatore
     num_paesi = st.radio("Quanti paesi per giocatore?", [3, 5], key="num_paesi")
