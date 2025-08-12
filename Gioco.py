@@ -7,14 +7,6 @@ df = pd.read_csv("FAOSTAT_data_en_8-10-2025.csv")
 
 st.set_page_config(page_title="Gioco Export FAOSTAT", page_icon="🌾")
 
-if 'prodotto_italiano' not in st.session_state:
-    st.session_state.prodotto_italiano = None
-    
-prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano)
-
-if prodotto_italiano != st.session_state.prodotto_italiano:
-     st.session_state.prodotto_italiano = prodotto_italiano
-
 traduzioni_prodotti = {
     "Coffee, green": "Caffè",
     "Maize (corn)": "Mais",
@@ -29,6 +21,14 @@ traduzioni_prodotti = {
 prodotti_inglese = sorted(df["Item"].unique())
 prodotti_italiano = [traduzioni_prodotti.get(p, p) for p in prodotti_inglese]
 anni = sorted(df["Year"].unique(), reverse=True)
+
+if 'prodotto_italiano' not in st.session_state:
+    st.session_state.prodotto_italiano = None
+    
+prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano)
+
+if prodotto_italiano != st.session_state.prodotto_italiano:
+     st.session_state.prodotto_italiano = prodotto_italiano
 
 mappa_paesi = {
     "Afghanistan": "Afghanistan",
