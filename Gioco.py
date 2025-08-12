@@ -2,11 +2,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-# Carica il CSV FAOSTAT (metti il percorso giusto)
+# --- Caricamento dati ---
 df = pd.read_csv("FAOSTAT_data_en_8-10-2025.csv")
 
+# --- Config pagina ---
 st.set_page_config(page_title="Gioco Export FAOSTAT", page_icon="🌾")
 
+# --- Dizionario prodotti inglese -> italiano ---
 traduzioni_prodotti = {
     "Coffee, green": "Caffè",
     "Maize (corn)": "Mais",
@@ -20,6 +22,7 @@ traduzioni_prodotti = {
 
 prodotti_inglese = sorted(df["Item"].unique())
 prodotti_italiano = [traduzioni_prodotti.get(p, p) for p in prodotti_inglese]
+
 anni = sorted(df["Year"].unique(), reverse=True)
 
 mappa_paesi = {
@@ -213,102 +216,97 @@ mappa_paesi_inv = {v: k for k, v in mappa_paesi.items()}
 paesi_inglese = sorted(df["Area"].unique())
 paesi_italiano = [mappa_paesi.get(p, p) for p in paesi_inglese]
 
-# --- Stato iniziale in session_state ---
-if "step" not in st.session_state:
-    st.session_state.step = "start"  # start, input_players, results
-if "partecipanti" not in st.session_state:
+# --- Inizializza session state ---
+if 'step' not in st.session_state:
+    st.session_state.step = "home"  # home, inserimento, punteggi
+
+if 'num_paesi' not in st.session_state:
+    st.session_state.num_paesi = 3
+
+if 'n_partecipanti' not in st.session_state:
+    st.session_state.n_partecipanti = 1
+
+if 'partecipanti' not in st.session_state:
     st.session_state.partecipanti = {}
-if "current_player" not in st.session_state:
-    st.session_state.current_player = 0
+
+if 'indice_giocatore' not in st.session_state:
+    st.session_state.indice_giocatore = 0
+
 if 'prodotto_italiano' not in st.session_state:
-    st.session_state.prodotto_italiano = None
+    st.session_state.prodotto_italiano = prodotti_italiano[0]
 
-# Funzione reset per tornare all'inizio
-def reset():
-    st.session_state.step = "start"
+if 'anno' not in st.session_state:
+    st.session_state.anno = anni[0]
+
+# --- Funzioni per bottoni ---
+
+def inizia_gioco():
+    st.session_state.step = "inserimento"
     st.session_state.partecipanti = {}
-    st.session_state.current_player = 0
+    st.session_state.indice_giocatore = 0
 
-# --- Step START ---
-if st.session_state.step == "start":
-    st.title("🌾 Gioco sugli esportatori - FAOSTAT")
+def avanti_giocatore(nome, paesi_scelti_italiano):
+    if nome and len(paesi_scelti_italiano) == st.session_state.num_paesi:
+        # salva partecipante convertendo paesi in inglese
+        paesi_scelti_inglese = [mappa_paesi_inv.get(p, p) for p in paesi_scelti_italiano]
+        st.session_state.partecipanti[nome] = paesi_scelti_inglese
+        st.session_state.indice_giocatore += 1
+        if st.session_state.indice_giocatore >= st.session_state.n_partecipanti:
+            st.session_state.step = "punteggi"
 
-    # Scelta prodotto
-    prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano, key="prodotto_italiano")
-    if prodotto_italiano != st.session_state.prodotto_italiano:
-        st.session_state.prodotto_italiano = prodotto_italiano
+def calcola_punteggi():
+    st.session_state.step = "punteggi"
 
-    # Numero paesi per giocatore
-    num_paesi = st.radio("Quanti paesi per giocatore?", [3, 5], key="num_paesi")
+def torna_home():
+    st.session_state.step = "home"
+    st.session_state.partecipanti = {}
+    st.session_state.indice_giocatore = 0
 
-    # Numero partecipanti
-    n_partecipanti = st.number_input("Numero di partecipanti", min_value=1, step=1, key="n_partecipanti")
+# --- UI ---
+
+st.title("🌾 Gioco sugli esportatori - FAOSTAT")
+
+if st.session_state.step == "home":
+    # Scelte iniziali
+    st.session_state.prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano, index=prodotti_italiano.index(st.session_state.prodotto_italiano))
+    st.session_state.num_paesi = st.radio("Quanti paesi per giocatore?", [3, 5], index=[3, 5].index(st.session_state.num_paesi))
+    st.session_state.n_partecipanti = st.number_input("Numero di partecipanti", min_value=1, step=1, value=st.session_state.n_partecipanti)
+    st.session_state.anno = st.selectbox("Scegli anno", anni, index=anni.index(st.session_state.anno))
 
     if st.button("Inizia"):
-        # Salva valori in session_state
-        st.session_state.prodotto_italiano = prodotto_italiano
-        st.session_state.num_paesi = num_paesi
-        st.session_state.n_partecipanti = n_partecipanti
-        st.session_state.anno = anni[0]  # anno di default: il più recente
-        st.session_state.step = "input_players"
-        st.session_state.current_player = 0
-        st.session_state.partecipanti = {}
+        inizia_gioco()
 
-# --- Step INPUT PLAYERS ---
-elif st.session_state.step == "input_players":
-    # Mostra titolo con prodotto e anno (fisso a più recente per semplicità)
-    st.title(f"🌾 Gioco Export - {st.session_state.prodotto_italiano} ({anni[0]})")
-
-    i = st.session_state.current_player
-    n = st.session_state.n_partecipanti
-    num_paesi = st.session_state.num_paesi
-
-    st.write(f"Partecipante {i+1} di {n}")
-
-    # Inserisci nome
-    nome = st.text_input("Inserisci nome", key=f"nome_{i}")
-
-    # Scegli paesi (multiselect)
+elif st.session_state.step == "inserimento":
+    i = st.session_state.indice_giocatore
+    nome = st.text_input(f"Nome partecipante {i+1}", key=f"nome_{i}")
     paesi_scelti_italiano = st.multiselect(
-        f"Scegli {num_paesi} paesi",
+        f"Scegli {st.session_state.num_paesi} paesi per {nome}",
         paesi_italiano,
         key=f"paesi_{i}"
     )
 
-    # Pulsante dinamico
-    if i == n - 1:
-        btn_text = "Calcola punteggi"
+    if st.session_state.n_partecipanti == 1:
+        # Solo un giocatore → mostra Calcola punteggi
+        if st.button("Calcola punteggi"):
+            if nome and len(paesi_scelti_italiano) == st.session_state.num_paesi:
+                avanti_giocatore(nome, paesi_scelti_italiano)
     else:
-        btn_text = "Invia"
-
-    if st.button(btn_text):
-        # Controlla che nome e paesi siano corretti
-        if not nome:
-            st.warning("Inserisci un nome valido")
-        elif len(paesi_scelti_italiano) != num_paesi:
-            st.warning(f"Seleziona esattamente {num_paesi} paesi")
+        # Più giocatori → bottone "Invia" per ogni giocatore tranne l'ultimo
+        if i < st.session_state.n_partecipanti - 1:
+            if st.button("Invia"):
+                if nome and len(paesi_scelti_italiano) == st.session_state.num_paesi:
+                    avanti_giocatore(nome, paesi_scelti_italiano)
         else:
-            # Salva partecipante convertendo i paesi in inglese
-            paesi_scelti_inglese = [mappa_paesi_inv.get(p, p) for p in paesi_scelti_italiano]
-            st.session_state.partecipanti[nome] = paesi_scelti_inglese
+            if st.button("Calcola punteggi"):
+                if nome and len(paesi_scelti_italiano) == st.session_state.num_paesi:
+                    avanti_giocatore(nome, paesi_scelti_italiano)
 
-            if i == n - 1:
-                st.session_state.step = "results"
-            else:
-                st.session_state.current_player += 1
-            st.experimental_rerun()  # aggiorna pagina per mostrare input del prossimo giocatore o risultati
-
-# --- Step RESULTS ---
-elif st.session_state.step == "results":
-    st.title("🏆 Risultati Gioco Export FAOSTAT")
-
+elif st.session_state.step == "punteggi":
     prodotto_italiano = st.session_state.prodotto_italiano
-    num_paesi = st.session_state.num_paesi
-    partecipanti = st.session_state.partecipanti
-    anno = anni[0]
+    prodotto_idx = prodotti_italiano.index(prodotto_italiano)
+    prodotto = prodotti_inglese[prodotto_idx]
+    anno = st.session_state.anno
 
-    # Filtro dati come nel tuo codice originale
-    prodotto = prodotti_inglese[prodotti_italiano.index(prodotto_italiano)]
     df_filtrato = df[
         (df["Item"] == prodotto) &
         (df["Year"] == anno) &
@@ -318,7 +316,7 @@ elif st.session_state.step == "results":
     totale_mondiale = df_filtrato["Value"].sum()
 
     punteggi = {}
-    for nome, paesi in partecipanti.items():
+    for nome, paesi in st.session_state.partecipanti.items():
         totale = 0
         for paese in paesi:
             riga = df_filtrato[df_filtrato["Area"].str.lower() == paese.lower()]
@@ -341,14 +339,12 @@ elif st.session_state.step == "results":
 
     st.write(f"**Totale cumulato Top 5**: {top5['Value'].sum():,.0f} t ({top5['Percentuale'].sum():.2f}%)")
 
+    # Grafico
     fig, ax = plt.subplots()
-    top5_paesi_it = [mappa_paesi.get(p, p) for p in top5["Area"]]
-    ax.bar(top5_paesi_it, top5["Percentuale"])
-    ax.set_ylabel("% sul totale mondiale")
-    ax.set_title(f"Top 5 export {prodotto_italiano} ({anno})")
-    plt.xticks(rotation=45)
+    ax.bar(top5["Area"].map(mappa_paesi), top5["Value"])
+    ax.set_title(f"Export {prodotto_italiano} nel {anno}")
+    ax.set_ylabel("Quantità")
     st.pyplot(fig)
 
-    if st.button("Home"):
-        reset()
-        st.experimental_rerun()
+    if st.button("Torna alla Home"):
+        torna_home()
