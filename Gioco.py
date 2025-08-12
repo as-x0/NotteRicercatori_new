@@ -2,14 +2,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 
-# Carica il CSV FAOSTAT
+# Carica il CSV FAOSTAT (metti il percorso giusto)
 df = pd.read_csv("FAOSTAT_data_en_8-10-2025.csv")
 
 st.set_page_config(page_title="Gioco Export FAOSTAT", page_icon="🌾")
 
-st.title("🌾 Gioco sugli esportatori - FAOSTAT")
-
-# --- Dizionario prodotti inglese -> italiano (espandi a piacere) ---
 traduzioni_prodotti = {
     "Coffee, green": "Caffè",
     "Maize (corn)": "Mais",
@@ -21,30 +18,10 @@ traduzioni_prodotti = {
     "Bananas": "Banane",
 }
 
-# Lista prodotti originali
 prodotti_inglese = sorted(df["Item"].unique())
-
-# Lista prodotti tradotti (se non c'è traduzione, lascia inglese)
 prodotti_italiano = [traduzioni_prodotti.get(p, p) for p in prodotti_inglese]
-
-# Seleziona anno
 anni = sorted(df["Year"].unique(), reverse=True)
-anno = st.selectbox("Scegli anno", anni)
 
-# Seleziona prodotto in italiano
-prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano)
-
-# Trova il prodotto inglese corrispondente
-indice_prodotto = prodotti_italiano.index(prodotto_italiano)
-prodotto = prodotti_inglese[indice_prodotto]
-
-num_paesi = st.radio("Quanti paesi per giocatore?", [3, 5])
-
-# --- Lista Paesi in italiano e mappa a inglese ---
-# Ricava lista Paesi unici dal df (inglese)
-paesi_inglese = sorted(df["Area"].unique())
-
-# Mappa Paesi inglese -> italiano (esempio, espandi a piacere)
 mappa_paesi = {
     "Afghanistan": "Afghanistan",
     "Albania": "Albania",
@@ -232,32 +209,102 @@ mappa_paesi = {
     "Zimbabwe": "Zimbabwe",
 }
 
-# Inversa: italiano -> inglese
 mappa_paesi_inv = {v: k for k, v in mappa_paesi.items()}
-
-# Lista Paesi in italiano da mostrare (prendi quelli in mappa, altrimenti lascia inglese)
+paesi_inglese = sorted(df["Area"].unique())
 paesi_italiano = [mappa_paesi.get(p, p) for p in paesi_inglese]
 
-# Inserimento partecipanti
-n_partecipanti = st.number_input("Numero di partecipanti", min_value=1, step=1)
-partecipanti = {}
+# --- Stato iniziale in session_state ---
+if "step" not in st.session_state:
+    st.session_state.step = "start"  # start, input_players, results
+if "partecipanti" not in st.session_state:
+    st.session_state.partecipanti = {}
+if "current_player" not in st.session_state:
+    st.session_state.current_player = 0
 
-for i in range(n_partecipanti):
-    nome = st.text_input(f"Nome partecipante {i+1}")
-    # Usa multiselect per scegliere i paesi in italiano con autocomplete integrato
+# Funzione reset per tornare all'inizio
+def reset():
+    st.session_state.step = "start"
+    st.session_state.partecipanti = {}
+    st.session_state.current_player = 0
+
+# --- Step START ---
+if st.session_state.step == "start":
+    st.title("🌾 Gioco sugli esportatori - FAOSTAT")
+
+    # Scelta prodotto
+    prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano, key="prodotto_italiano")
+
+    # Numero paesi per giocatore
+    num_paesi = st.radio("Quanti paesi per giocatore?", [3, 5], key="num_paesi")
+
+    # Numero partecipanti
+    n_partecipanti = st.number_input("Numero di partecipanti", min_value=1, step=1, key="n_partecipanti")
+
+    if st.button("Inizia"):
+        # Salva valori in session_state
+        st.session_state.prodotto_italiano = prodotto_italiano
+        st.session_state.num_paesi = num_paesi
+        st.session_state.n_partecipanti = n_partecipanti
+        st.session_state.anno = anni[0]  # anno di default: il più recente
+        st.session_state.step = "input_players"
+        st.session_state.current_player = 0
+        st.session_state.partecipanti = {}
+
+# --- Step INPUT PLAYERS ---
+elif st.session_state.step == "input_players":
+    # Mostra titolo con prodotto e anno (fisso a più recente per semplicità)
+    st.title(f"🌾 Gioco Export - {st.session_state.prodotto_italiano} ({anni[0]})")
+
+    i = st.session_state.current_player
+    n = st.session_state.n_partecipanti
+    num_paesi = st.session_state.num_paesi
+
+    st.write(f"Partecipante {i+1} di {n}")
+
+    # Inserisci nome
+    nome = st.text_input("Inserisci nome", key=f"nome_{i}")
+
+    # Scegli paesi (multiselect)
     paesi_scelti_italiano = st.multiselect(
-        f"Scegli {num_paesi} paesi per {nome}", paesi_italiano, key=f"paesi_{i}"
+        f"Scegli {num_paesi} paesi",
+        paesi_italiano,
+        key=f"paesi_{i}"
     )
-    if nome and len(paesi_scelti_italiano) == num_paesi:
-        # Converti i paesi scelti in inglese per il filtro
-        paesi_scelti_inglese = []
-        for p in paesi_scelti_italiano:
-            p_en = mappa_paesi_inv.get(p, p)  # se non in mappa, usa nome così com'è
-            paesi_scelti_inglese.append(p_en)
-        partecipanti[nome] = paesi_scelti_inglese
 
-# Avvia gioco
-if st.button("Calcola punteggi") and partecipanti:
+    # Pulsante dinamico
+    if i == n - 1:
+        btn_text = "Calcola punteggi"
+    else:
+        btn_text = "Invia"
+
+    if st.button(btn_text):
+        # Controlla che nome e paesi siano corretti
+        if not nome:
+            st.warning("Inserisci un nome valido")
+        elif len(paesi_scelti_italiano) != num_paesi:
+            st.warning(f"Seleziona esattamente {num_paesi} paesi")
+        else:
+            # Salva partecipante convertendo i paesi in inglese
+            paesi_scelti_inglese = [mappa_paesi_inv.get(p, p) for p in paesi_scelti_italiano]
+            st.session_state.partecipanti[nome] = paesi_scelti_inglese
+
+            if i == n - 1:
+                st.session_state.step = "results"
+            else:
+                st.session_state.current_player += 1
+            st.experimental_rerun()  # aggiorna pagina per mostrare input del prossimo giocatore o risultati
+
+# --- Step RESULTS ---
+elif st.session_state.step == "results":
+    st.title("🏆 Risultati Gioco Export FAOSTAT")
+
+    prodotto_italiano = st.session_state.prodotto_italiano
+    num_paesi = st.session_state.num_paesi
+    partecipanti = st.session_state.partecipanti
+    anno = anni[0]
+
+    # Filtro dati come nel tuo codice originale
+    prodotto = prodotti_inglese[prodotti_italiano.index(prodotto_italiano)]
     df_filtrato = df[
         (df["Item"] == prodotto) &
         (df["Year"] == anno) &
@@ -275,25 +322,21 @@ if st.button("Calcola punteggi") and partecipanti:
                 totale += riga["Value"].values[0]
         punteggi[nome] = totale
 
-    # Classifica
     classifica = sorted(punteggi.items(), key=lambda x: x[1], reverse=True)
     st.subheader("🏆 Classifica")
     for pos, (nome, punti) in enumerate(classifica, start=1):
         st.write(f"{pos}. **{nome}** → {punti:,.0f} t ({punti/totale_mondiale*100:.2f}%)")
 
-    # Top 5 reale
     top5 = df_filtrato.head(5).copy()
     top5["Percentuale"] = top5["Value"] / totale_mondiale * 100
 
     st.subheader("🌍 Top 5 reale")
     for _, row in top5.iterrows():
-        # Se possibile mostra nome paese in italiano
         paese_it = mappa_paesi.get(row["Area"], row["Area"])
         st.write(f"{paese_it}: {row['Value']:,.0f} t ({row['Percentuale']:.2f}%)")
 
     st.write(f"**Totale cumulato Top 5**: {top5['Value'].sum():,.0f} t ({top5['Percentuale'].sum():.2f}%)")
 
-    # Grafico
     fig, ax = plt.subplots()
     top5_paesi_it = [mappa_paesi.get(p, p) for p in top5["Area"]]
     ax.bar(top5_paesi_it, top5["Percentuale"])
@@ -301,3 +344,7 @@ if st.button("Calcola punteggi") and partecipanti:
     ax.set_title(f"Top 5 export {prodotto_italiano} ({anno})")
     plt.xticks(rotation=45)
     st.pyplot(fig)
+
+    if st.button("Home"):
+        reset()
+        st.experimental_rerun()
