@@ -231,10 +231,16 @@ def reset():
 if st.session_state.step == "start":
     st.title("🌾 Gioco sugli esportatori - FAOSTAT")
 
+    if 'prodotto_italiano' not in st.session_state:
+        st.session_state.prodotto_italiano = None
+    
+    prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano)
+    
+    if prodotto_italiano != st.session_state.prodotto_italiano:
+        st.session_state.prodotto_italiano = prodotto_italiano
+
     # Scelta prodotto
     prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano, key="prodotto_italiano")
-    if 'prodotto_italiano' not in st.session_state:
-        st.session_state.prodotto_italiano = "Banane"
 
     # Numero paesi per giocatore
     num_paesi = st.radio("Quanti paesi per giocatore?", [3, 5], key="num_paesi")
