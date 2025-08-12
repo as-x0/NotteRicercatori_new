@@ -7,6 +7,14 @@ df = pd.read_csv("FAOSTAT_data_en_8-10-2025.csv")
 
 st.set_page_config(page_title="Gioco Export FAOSTAT", page_icon="🌾")
 
+if 'prodotto_italiano' not in st.session_state:
+    st.session_state.prodotto_italiano = None
+    
+prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano)
+
+if prodotto_italiano != st.session_state.prodotto_italiano:
+     st.session_state.prodotto_italiano = prodotto_italiano
+
 traduzioni_prodotti = {
     "Coffee, green": "Caffè",
     "Maize (corn)": "Mais",
@@ -230,14 +238,6 @@ def reset():
 # --- Step START ---
 if st.session_state.step == "start":
     st.title("🌾 Gioco sugli esportatori - FAOSTAT")
-
-    if 'prodotto_italiano' not in st.session_state:
-        st.session_state.prodotto_italiano = None
-    
-    prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano)
-    
-    if prodotto_italiano != st.session_state.prodotto_italiano:
-        st.session_state.prodotto_italiano = prodotto_italiano
 
     # Scelta prodotto
     prodotto_italiano = st.selectbox("Scegli prodotto", prodotti_italiano, key="prodotto_italiano")
